@@ -1,0 +1,46 @@
+name: Deploy to Azure Container Instance
+
+on:
+  push:
+    branches:
+      - main  # O deploy ocorrerá ao fazer push na branch "main".
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v2
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and Push Docker image
+      run: |
+        docker build -t vinissaum/java-github-cicd:latest .
+        docker push vinissaum/java-github-cicd:latest
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Container Instance
+      run: |
+        az container create \
+          --resource-group <Nome-do-seu-resource-group> \
+          --name java-container-instance \
+          --image vinissaum/java-github-cicd:latest \
+          --cpu 1 \
+          --memory 1.5 \
+          --ports 8080 \
+          --dns-name-label java-app \
+          --query "{FQDN:ipAddress.fqdn}" \
+          --output table
